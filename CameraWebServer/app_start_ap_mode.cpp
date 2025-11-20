@@ -26,28 +26,28 @@ static void handleRoot() {
   String page = "<!DOCTYPE html><html><head>";
   page += "<meta charset=\"utf-8\">";
   page += "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">";
-  page += "<title>ESP32-CAM WiFi Setup</title>";
+  page += "<title>Configuration WiFi ESP32-CAM</title>"; // Traduction du titre
   page += "<style>body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f7f7f7;color:#222;}";
   page += ".wrap{max-width:480px;margin:4vh auto;padding:18px;background:#fff;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);}";
   page += "h2{margin:0 0 12px 0;color:#111;}label{display:block;margin:8px 0 6px;font-weight:600;}";
   page += "input[type=text],input[type=password]{width:100%;padding:10px;margin:4px 0 12px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;}";
-  page += "input[type=submit]{width:100%;padding:12px;background:#007bff;color:#fff;border:none;border-radius:6px;font-size:16px;}";
+  page += "input[type=submit]{width:100%;padding:12px;background:#007bff;color:#fff;border:none;border-radius:6px;font-size:16px;cursor:pointer;}"; // Ajout de cursor:pointer
   page += "p.small{font-size:0.9em;color:#666;margin-top:8px;}";
   page += "@media (max-width:420px){.wrap{margin:3vh 12px;padding:14px}}";
   page += "</style></head><body>";
 
   page += "<div class=\"wrap\">";
-  page += "<h2>Configure WiFi</h2>";
+  page += "<h2>Configuration Wi-Fi</h2>"; // Traduction
   page += "<form method=\"POST\" action=\"/save\">";
-  page += "<label for=\"ssid\">SSID</label><input id=\"ssid\" name=\"ssid\" type=\"text\" placeholder=\"YourWiFi\">";
-  page += "<label for=\"pass\">Password</label><input id=\"pass\" name=\"pass\" type=\"password\" placeholder=\"Password\">";
-  page += "<input type=\"submit\" value=\"Save\">";
+  page += "<label for=\"ssid\">Nom du Réseau (SSID)</label><input id=\"ssid\" name=\"ssid\" type=\"text\" placeholder=\"Mon_WiFi_Maison\">"; // Traduction et placeholder français
+  page += "<label for=\"pass\">Mot de Passe</label><input id=\"pass\" name=\"pass\" type=\"password\" placeholder=\"Mot de Passe\">"; // Traduction et placeholder français
+  page += "<input type=\"submit\" value=\"Sauvegarder et Connecter\">"; // Traduction du bouton
   page += "</form>";
-  page += "<p class=\"small\">After saving, the device will attempt to connect to the provided network.</p>";
+  page += "<p class=\"small\">Après la sauvegarde, l'appareil tentera de se connecter au réseau spécifié et redémarrera.</p>"; // Traduction du texte d'instruction
   page += "<hr style=\"border:none;border-top:1px solid #eee;margin:14px 0\">";
-  page += "<p style=\"font-size:0.85em;color:#666;margin:0\">Author: <strong>Augustin SEGUIN</strong></p>";
+  page += "<p style=\"font-size:0.85em;color:#666;margin:0\">Auteur: <strong>Augustin SEGUIN</strong></p>";
   page += "</div></body></html>";
-  server->send(200, "text/html", page);
+  server.send(200, "text/html", page);
 }
 
 static void handleSave() {
