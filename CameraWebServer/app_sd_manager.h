@@ -1,11 +1,10 @@
-#ifndef APP_SAVE_SD_H
-#define APP_SAVE_SD_H
+#ifndef APP_SD_MANAGER_H
+#define APP_SD_MANAGER_H
 
 #include <stdint.h>
 
-// Start a background task that captures an image and saves it to the SD card
-// every intervalSeconds seconds. If the SD is not present the task will keep
-// retrying and log an error. Default interval is 2 seconds.
+// Start a background task that captures and saves images to SD card
+// every intervalSeconds seconds, with motion detection
 void startImageSaverTask(uint32_t intervalSeconds = 2);
 
 // Stop the background task (if running)
@@ -17,4 +16,4 @@ bool sdInit();
 // Remove all saved images from the SD (folder /photos)
 void clearSavedImages();
 
-#endif // APP_SAVE_SD_H
+#endif // APP_SD_MANAGER_H

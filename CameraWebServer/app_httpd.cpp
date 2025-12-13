@@ -133,14 +133,9 @@ static int ra_filter_run(ra_filter_t *filter, int value) {
 
 #if defined(LED_GPIO_NUM)
 void enable_led(bool en) {  // Turn LED On or Off
-  int duty = en ? led_duty : 0;
-  if (en && isStreaming && (led_duty > CONFIG_LED_MAX_INTENSITY)) {
-    duty = CONFIG_LED_MAX_INTENSITY;
-  }
-  ledcWrite(LED_GPIO_NUM, duty);
-  //ledc_set_duty(CONFIG_LED_LEDC_SPEED_MODE, CONFIG_LED_LEDC_CHANNEL, duty);
-  //ledc_update_duty(CONFIG_LED_LEDC_SPEED_MODE, CONFIG_LED_LEDC_CHANNEL);
-  log_i("Set LED intensity to %d", duty);
+  // No-op: disable runtime LED control to prevent flashing during automated captures.
+  (void)en;
+  log_i("enable_led(): LED control disabled (no-op)");
 }
 #endif
 
@@ -925,9 +920,7 @@ void startCameraServer() {
 }
 
 void setupLedFlash() {
-#if defined(LED_GPIO_NUM)
-  ledcAttach(LED_GPIO_NUM, 5000, 8);
-#else
-  log_i("LED flash is disabled -> LED_GPIO_NUM undefined");
-#endif
+  // LED flash intentionally disabled to avoid automatic flashing during background saves.
+  // Keep this function as a no-op so callers are safe.
+  log_i("setupLedFlash(): LED flash disabled (no-op)");
 }

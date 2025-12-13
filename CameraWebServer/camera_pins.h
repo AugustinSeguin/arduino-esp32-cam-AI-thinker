@@ -37,7 +37,10 @@
 #define HREF_GPIO_NUM  27
 #define PCLK_GPIO_NUM  25
 
-#define LED_GPIO_NUM 22
+/* LED disabled for ESP_EYE to avoid periodic flashing during background saves.
+ * If you need the LED/IR illuminator, re-enable by setting the proper pin here.
+ */
+/* #define LED_GPIO_NUM 22 */
 
 #elif defined(CAMERA_MODEL_M5STACK_PSRAM)
 #define PWDN_GPIO_NUM  -1
@@ -96,7 +99,7 @@
 #define HREF_GPIO_NUM  26
 #define PCLK_GPIO_NUM  21
 
-#define LED_GPIO_NUM 2
+// #define LED_GPIO_NUM 2
 
 #elif defined(CAMERA_MODEL_M5STACK_ESP32CAM)
 #define PWDN_GPIO_NUM  -1
@@ -155,7 +158,7 @@
 #define HREF_GPIO_NUM  18
 #define PCLK_GPIO_NUM  12
 
-#define LED_GPIO_NUM 14
+// #define LED_GPIO_NUM 14
 
 #elif defined(CAMERA_MODEL_AI_THINKER)
 #define PWDN_GPIO_NUM  32
@@ -177,7 +180,8 @@
 #define PCLK_GPIO_NUM  22
 
 // 4 for flash led or 33 for normal led
-#define LED_GPIO_NUM   4
+/* LED disabled to prevent periodic flashing. To re-enable, set this to the proper pin. */
+/* #define LED_GPIO_NUM   4 */
 
 #elif defined(CAMERA_MODEL_TTGO_T_JOURNAL)
 #define PWDN_GPIO_NUM  0

@@ -1,29 +1,39 @@
 #include "esp_camera.h"
 #include <WiFi.h>
 #include <esp_err.h>
+#include <time.h>
+#include <sys/time.h>
+#include <esp_sntp.h>
+#include <HTTPClient.h>
 
 // ===========================
 // Select camera model in board_config.h
 // ===========================
 #include "board_config.h"
-// SD save helper
-#include "app_save_sd.h"
+// SD save and API client helpers
+#include "app_sd_manager.h"
+#include "app_api_client.h"
 // AP mode helper for configuring WiFi credentials
 #include "app_start_ap_mode.h"
+// Auto-generated config from mycam-api/.env
+#include "config.h"
 
 // ===========================
-// Enter your WiFi credentials
+// Configuration from config.h (generated from mycam-api/.env)
+// Run: python3 generate_config.py to update
 // ===========================
-// Fallback credentials (used only if no saved credentials found)
-const char *default_ssid = "";
-const char *default_password = "";
-int secondDelay = 2;
+const char *default_ssid = WIFI_SSID;
+const char *default_password = WIFI_PASSWORD;
+int secondDelay = SAVE_INTERVAL;
+const char *SERVER_API_URL = SERVER_API_URL_CONFIG;
+const char *API_KEY = API_KEY_CONFIG;
+const char *CAMERA_KEY = CAMERA_KEY_CONFIG;
 
 void startCameraServer();
 void setupLedFlash();
 
 void setup() {
-  Serial.begin(57600);
+  Serial.begin(115200);
   Serial.setDebugOutput(true);
   Serial.println();
   Serial.println("Initialisation ESP32-CAM (ESP_EYE / OV3660)...");
@@ -80,10 +90,68 @@ void setup() {
   pinMode(14, INPUT_PULLUP);
 #endif
 
-  // camera init
-  esp_err_t err = esp_camera_init(&config);
+  // camera init -- diagnostics + safe retries
+  Serial.println("Camera init: printing pin mapping...");
+  Serial.printf("Pins: XCLK=%d PCLK=%d VSYNC=%d HREF=%d\n", XCLK_GPIO_NUM, PCLK_GPIO_NUM, VSYNC_GPIO_NUM, HREF_GPIO_NUM);
+  Serial.printf("Data: D0=%d D1=%d D2=%d D3=%d D4=%d D5=%d D6=%d D7=%d\n", Y2_GPIO_NUM, Y3_GPIO_NUM, Y4_GPIO_NUM, Y5_GPIO_NUM, Y6_GPIO_NUM, Y7_GPIO_NUM, Y8_GPIO_NUM, Y9_GPIO_NUM);
+  Serial.printf("SCCB: SDA=%d SCL=%d PWDN=%d RESET=%d\n", SIOD_GPIO_NUM, SIOC_GPIO_NUM, PWDN_GPIO_NUM, RESET_GPIO_NUM);
+
+#if defined(PWDN_GPIO_NUM)
+  if (PWDN_GPIO_NUM != -1) {
+    pinMode(PWDN_GPIO_NUM, OUTPUT);
+    digitalWrite(PWDN_GPIO_NUM, LOW); // ensure powered
+    Serial.printf("Pulled PWDN (gpio %d) LOW\n", PWDN_GPIO_NUM);
+    delay(10);
+  }
+#endif
+
+#if defined(RESET_GPIO_NUM)
+  if (RESET_GPIO_NUM != -1) {
+    pinMode(RESET_GPIO_NUM, OUTPUT);
+    // pulse reset
+    digitalWrite(RESET_GPIO_NUM, LOW);
+    delay(20);
+    digitalWrite(RESET_GPIO_NUM, HIGH);
+    Serial.printf("Pulsed RESET (gpio %d)\n", RESET_GPIO_NUM);
+    delay(10);
+  }
+#endif
+
+  esp_err_t err = ESP_FAIL;
+  const uint32_t xclks[] = {20000000U, 10000000U, 8000000U};
+  const int attempts = sizeof(xclks)/sizeof(xclks[0]);
+  for (int a = 0; a < attempts; ++a) {
+    config.xclk_freq_hz = xclks[a];
+    Serial.printf("Attempt %d/%d: esp_camera_init with XCLK=%u\n", a + 1, attempts, (unsigned)config.xclk_freq_hz);
+    err = esp_camera_init(&config);
+    if (err == ESP_OK) {
+      Serial.println("Camera initialized successfully");
+      break;
+    }
+    Serial.printf("Camera init failed (attempt %d) 0x%x (%s)\n", a + 1, err, esp_err_to_name(err));
+    // try pulsing reset/pwdn again between attempts
+#if defined(RESET_GPIO_NUM)
+    if (RESET_GPIO_NUM != -1) {
+      Serial.println("Retry: pulsing RESET before next attempt");
+      digitalWrite(RESET_GPIO_NUM, LOW);
+      delay(10);
+      digitalWrite(RESET_GPIO_NUM, HIGH);
+      delay(20);
+    }
+#endif
+#if defined(PWDN_GPIO_NUM)
+    if (PWDN_GPIO_NUM != -1) {
+      Serial.println("Retry: toggling PWDN before next attempt");
+      digitalWrite(PWDN_GPIO_NUM, HIGH);
+      delay(10);
+      digitalWrite(PWDN_GPIO_NUM, LOW);
+      delay(20);
+    }
+#endif
+    delay(200);
+  }
   if (err != ESP_OK) {
-    Serial.printf("Camera init failed with error 0x%x (%s)\n", err, esp_err_to_name(err));
+    Serial.printf("Camera init ultimately failed after %d attempts: 0x%x (%s)\n", attempts, err, esp_err_to_name(err));
     return;
   }
 
@@ -110,7 +178,7 @@ void setup() {
 
 // Setup LED FLash if LED pin is defined in camera_pins.h
 #if defined(LED_GPIO_NUM)
-  setupLedFlash();
+  // setupLedFlash();
 #endif
 
   // Try to load saved credentials (from AP-mode configuration)
@@ -134,6 +202,78 @@ void setup() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("");
     Serial.println("WiFi connected");
+    // Configure NTP to get real time for timestamped filenames
+    Serial.println("Configuring NTP (pool.ntp.org, time.google.com)...");
+    // Set timezone to Europe/Paris (CET/CEST)
+    setenv("TZ", "CET-1CEST,M3.5.0/02:00,M10.5.0/03:00", 1);
+    tzset();
+
+    // Initialize SNTP explicitly with multiple servers
+    esp_sntp_stop();
+    esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_setservername(1, "time.google.com");
+    esp_sntp_setservername(2, "time.cloudflare.com");
+    esp_sntp_init();
+
+    // Wait up to 60s for time to be acquired
+    unsigned long ntpStart = millis();
+    while ((time(nullptr) < 1000000000UL) && (millis() - ntpStart) < 60000UL) {
+      Serial.print(".");
+      delay(500);
+    }
+    if (time(nullptr) >= 1000000000UL) {
+      time_t now = time(nullptr);
+      struct tm timeinfo;
+      localtime_r(&now, &timeinfo);
+      char buf[64];
+      strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+      Serial.printf("\nNTP acquired: %s\n", buf);
+    } else {
+      Serial.println("\nNTP not acquired via SNTP, trying HTTP fallback...");
+      // Try HTTP fallback to worldtimeapi.org to fetch unixtime
+      HTTPClient http;
+      http.setTimeout(5000);
+      if (http.begin("http://worldtimeapi.org/api/ip")) {
+        int code = http.GET();
+        if (code == HTTP_CODE_OK) {
+          String payload = http.getString();
+          int idx = payload.indexOf("\"unixtime\":");
+          if (idx >= 0) {
+            idx += 11; // move past "unixtime":
+            unsigned long unixt = 0;
+            while (idx < (int)payload.length() && isDigit(payload[idx])) {
+              unixt = unixt * 10 + (payload[idx] - '0');
+              idx++;
+            }
+            if (unixt > 1000000000UL) {
+              struct timeval tv;
+              tv.tv_sec = (time_t)unixt;
+              tv.tv_usec = 0;
+              settimeofday(&tv, NULL);
+              time_t now = time(nullptr);
+              struct tm timeinfo;
+              localtime_r(&now, &timeinfo);
+              char buf[64];
+              strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+              Serial.printf("HTTP time acquired: %s\n", buf);
+            } else {
+              Serial.println("HTTP fallback returned invalid unixtime");
+            }
+          } else {
+            Serial.println("HTTP fallback: unixtime not found in response");
+          }
+        } else {
+          Serial.printf("HTTP fallback failed: code %d\n", code);
+        }
+        http.end();
+      } else {
+        Serial.println("HTTP fallback: failed to begin connection");
+      }
+      if (time(nullptr) < 1000000000UL) {
+        Serial.println("No valid time acquired (SNTP+HTTP) — timestamps will use uptime");
+      }
+    }
   } else {
     Serial.println("");
     Serial.println("WiFi connect failed or timed out — starting configuration AP");
@@ -142,8 +282,12 @@ void setup() {
 
   startCameraServer();
 
-  // Start periodic image saver (every 2 seconds)
-  startImageSaverTask((uint32_t)secondDelay);
+  // Start periodic image saver (every 2 seconds) ONLY if a valid NTP time was acquired.
+  if (time(nullptr) >= 1000000000UL) {
+    startImageSaverTask((uint32_t)secondDelay);
+  } else {
+    Serial.println("Image saver not started: no valid time available. Connect to the AP and configure WiFi to allow NTP.");
+  }
 
   Serial.print("Camera Ready! Use 'http://");
   Serial.print(WiFi.localIP());

@@ -47,7 +47,7 @@ static void handleRoot() {
   page += "<hr style=\"border:none;border-top:1px solid #eee;margin:14px 0\">";
   page += "<p style=\"font-size:0.85em;color:#666;margin:0\">Auteur: <strong>Augustin SEGUIN</strong></p>";
   page += "</div></body></html>";
-  server.send(200, "text/html", page);
+                        server->send(200, "text/html", page);
 }
 
 static void handleSave() {
