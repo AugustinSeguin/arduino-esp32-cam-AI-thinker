@@ -43,12 +43,12 @@ void notifyMotionToServer(const char* cameraKey) {
   char payload[256];
   if (now > 1000000000UL) {
     snprintf(payload, sizeof(payload), 
-             "{\"type\":\"motion\",\"message\":\"Movement detected by ESP32-CAM\",\"timestamp\":%lu}", 
+             "{\"type\":\"motion\",\"message\":\"Mouvement détecté par la caméra\",\"timestamp\":%lu}", 
              (unsigned long)now);
   } else {
     unsigned long t = (unsigned long)(millis() / 1000UL);
     snprintf(payload, sizeof(payload), 
-             "{\"type\":\"motion\",\"message\":\"Movement detected (uptime: %lus)\"}", 
+             "{\"type\":\"motion\",\"message\":\"Mouvement détecté (uptime: %lus)\"}", 
              t);
   }
 
