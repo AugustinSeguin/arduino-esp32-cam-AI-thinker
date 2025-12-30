@@ -1,3 +1,4 @@
+#include <ArduinoJson.h>
 #include "app_api_client.h"
 #include <WiFi.h>
 #include <HTTPClient.h>
@@ -12,6 +13,48 @@
 #define SERVER_API_URL SERVER_API_URL_CONFIG
 #define API_KEY API_KEY_CONFIG
 #define CAMERA_KEY CAMERA_KEY_CONFIG
+
+// Envoie un heartbeat (cam_key) pour mettre à jour l'IP sur le backend
+void updateCameraHeartbeatToServer() {
+  if (!SERVER_API_URL || strlen(SERVER_API_URL) == 0) return;
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("[API] WiFi not connected — skipping heartbeat");
+    return;
+  }
+  HTTPClient http;
+  String url = String(SERVER_API_URL);
+  if (!url.endsWith("/")) url += "/";
+  url += "cameras/update-ip";
+  http.setTimeout(5000);
+  bool begun = false;
+  if (url.startsWith("https://")) {
+    WiFiClientSecure *client = new WiFiClientSecure();
+    client->setInsecure();
+    begun = http.begin(*client, url);
+  } else {
+    begun = http.begin(url);
+  }
+  if (!begun) {
+    Serial.println("[API] http.begin failed (heartbeat)");
+    return;
+  }
+  // Prépare le JSON {"cam_key":"..."}
+  StaticJsonDocument<128> doc;
+  doc["cam_key"] = CAMERA_KEY;
+  doc["local_ip"] = WiFi.localIP().toString();
+  String payload;
+  serializeJson(doc, payload);
+  http.addHeader("Content-Type", "application/json");
+  if (API_KEY && strlen(API_KEY) > 0) http.addHeader("X-API-Key", API_KEY);
+  if (CAMERA_API_KEY && strlen(CAMERA_API_KEY) > 0) http.addHeader("X-Camera-API-Key", CAMERA_API_KEY);
+  int code = http.POST((uint8_t*)payload.c_str(), payload.length());
+  if (code > 0) {
+    Serial.printf("[API] Heartbeat POST %s returned %d\n", url.c_str(), code);
+  } else {
+    Serial.printf("[API] Heartbeat POST %s failed: %d\n", url.c_str(), code);
+  }
+  http.end();
+}
 
 // Send a motion notification POST to SERVER_API_URL/<cameraKey>
 void notifyMotionToServer(const char* cameraKey) {

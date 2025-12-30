@@ -30,6 +30,7 @@ const char *API_KEY = API_KEY_CONFIG;
 const char *CAMERA_KEY = CAMERA_KEY_CONFIG;
 
 void setupLedFlash();
+void startCameraServer();
 
 void setup() {
   Serial.begin(115200);
@@ -201,6 +202,8 @@ void setup() {
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("");
     Serial.println("WiFi connected");
+    // Envoie le heartbeat au backend dès la connexion WiFi
+    updateCameraHeartbeatToServer();
     // Configure NTP to get real time for timestamped filenames
     Serial.println("Configuring NTP (pool.ntp.org, time.google.com)...");
     // Set timezone to Europe/Paris (CET/CEST)
@@ -289,9 +292,18 @@ void setup() {
   Serial.print("Camera Ready! Use 'http://");
   Serial.print(WiFi.localIP());
   Serial.println("' to connect");
+
+  // Démarre le serveur HTTP de la caméra
+  startCameraServer();
 }
 
 void loop() {
-  // Do nothing. Everything is done in another task by the web server
-  delay(10000);
+  // Heartbeat périodique toutes les 60s
+  static unsigned long lastHeartbeat = 0;
+  unsigned long now = millis();
+  if (now - lastHeartbeat > 60000UL) {
+    updateCameraHeartbeatToServer();
+    lastHeartbeat = now;
+  }
+  delay(1000);
 }
