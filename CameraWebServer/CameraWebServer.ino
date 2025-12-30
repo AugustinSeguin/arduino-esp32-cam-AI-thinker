@@ -29,7 +29,6 @@ const char *SERVER_API_URL = SERVER_API_URL_CONFIG;
 const char *API_KEY = API_KEY_CONFIG;
 const char *CAMERA_KEY = CAMERA_KEY_CONFIG;
 
-void startCameraServer();
 void setupLedFlash();
 
 void setup() {
@@ -279,8 +278,6 @@ void setup() {
     Serial.println("WiFi connect failed or timed out — starting configuration AP");
     startConfigAP();
   }
-
-  startCameraServer();
 
   // Start periodic image saver (every 2 seconds) ONLY if a valid NTP time was acquired.
   if (time(nullptr) >= 1000000000UL) {

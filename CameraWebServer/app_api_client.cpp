@@ -6,9 +6,12 @@
 #include <Arduino.h>
 
 // server upload variables defined in main sketch
-extern const char *SERVER_API_URL;
-extern const char *API_KEY;
-extern const char *CAMERA_KEY;
+#include "config.h"
+
+// Utiliser les constantes de config.h pour les notifs
+#define SERVER_API_URL SERVER_API_URL_CONFIG
+#define API_KEY API_KEY_CONFIG
+#define CAMERA_KEY CAMERA_KEY_CONFIG
 
 // Send a motion notification POST to SERVER_API_URL/<cameraKey>
 void notifyMotionToServer(const char* cameraKey) {
@@ -20,15 +23,16 @@ void notifyMotionToServer(const char* cameraKey) {
   HTTPClient http;
   // Build URL: https://<ngrok>/cameras/notification/<cam_esp32_001>
   String url = String(SERVER_API_URL);
-  if (cameraKey && strlen(cameraKey) > 0) {
-    if (!url.endsWith("/")) url += "/";
-    url += cameraKey;
+  if (!url.endsWith("/")) url += "/";
+  url += "cameras/notification/";
+  if (CAMERA_KEY && strlen(CAMERA_KEY) > 0) {
+    url += CAMERA_KEY;
   }
   http.setTimeout(5000);
   bool begun = false;
   if (url.startsWith("https://")) {
     WiFiClientSecure *client = new WiFiClientSecure();
-    client->setInsecure(); // accept all certs for ngrok
+    client->setInsecure(); // accept all certs for ngrok //todo to remove
     begun = http.begin(*client, url);
   } else {
     begun = http.begin(url);
@@ -59,6 +63,7 @@ void notifyMotionToServer(const char* cameraKey) {
   snprintf(contentLenStr, sizeof(contentLenStr), "%zu", payloadLen);
   http.addHeader("Content-Length", contentLenStr);
   if (API_KEY && strlen(API_KEY) > 0) http.addHeader("X-API-Key", API_KEY);
+  if (CAMERA_API_KEY && strlen(CAMERA_API_KEY) > 0) http.addHeader("X-Camera-API-Key", CAMERA_API_KEY);
 
   int code = http.POST((uint8_t*)payload, payloadLen);
   if (code > 0) {

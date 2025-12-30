@@ -189,8 +189,8 @@ static void imageSaveTask(void* pv) {
           Serial.printf("[SDMgr] Motion: size_diff=%d%% (%d bytes), content_diff=%.1f%% (%u/%u bytes)\n",
                         sizeDiffPercent, sizeDiff, diffPercent, (unsigned)bytesDiff, (unsigned)checkSize);
           
-          // Trigger motion if size changed >10% OR content changed >15%
-          if (sizeDiffPercent > 10 || diffPercent > 15.0f) {
+          // Trigger motion if size changed >3% OR content changed >8%
+          if (sizeDiffPercent > 3 || diffPercent > 8.0f) {
             motionDetected = true;
             Serial.printf("[SDMgr] *** MOTION DETECTED *** size_diff=%d%% content_diff=%.1f%%\n", 
                           sizeDiffPercent, diffPercent);
